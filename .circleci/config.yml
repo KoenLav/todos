@@ -1,0 +1,110 @@
+version: 2
+jobs:
+
+  build: 
+    docker:
+      - image: circleci/android:api-26-node8-alpha
+      # - image: library/node:8.9.1
+        environment:
+          # lang settings required for Meteor's Mongo
+          LANG: C.UTF-8
+          LANGUAGE: C.UTF-8
+          LC_ALL: C.UTF-8
+          LC_NUMERIC: en_US.UTF-8
+          METEOR_BIN_TMP_DIR: /home/circleci/build-temp/
+          METEOR_BIN_TMP_FILE: meteor-bin-temp
+          METEOR_ALLOW_SUPERUSER: true
+          TOOL_NODE_FLAGS: --max-old-space-size=2048
+          JAVA_OPTS: -Xmx1024m
+    working_directory: ~/app
+    steps:
+      - checkout
+      # - run:
+      #     name: fetch submodules
+      #     command: |
+      #       git submodule sync
+      #       git submodule update --init --recursive
+      # - restore_cache:
+      #     key: build-temp-{{ checksum ".meteor/release" }}
+      # - restore_cache:
+      #     key: meteor-release-{{ checksum ".meteor/release" }}
+      # - restore_cache:
+      #     key: meteor-packages-{{ checksum ".meteor/versions" }}
+      # - restore_cache:
+      #     key: npm-packages-{{ checksum "package.json" }}
+      # - run:
+      #     name: restore cached meteor bin
+      #     command: |
+      #       if [ -e ~/build-temp/meteor-bin ]
+      #       then
+      #           echo "Cached Meteor bin found, restoring it"
+      #           cp ~/build-temp/meteor-bin /usr/local/bin/meteor
+      #       else
+      #           echo "No cached Meteor bin found."
+      #       fi
+      # - run:
+      #     name: install android build tools 26.0.3
+      #     command: sdkmanager "build-tools;26.0.3" && yes | sdkmanager --licenses
+      - run:
+          name: install Meteor
+          # only install meteor if bin isn't found
+          command: command -v meteor >/dev/null 2>&1 || curl https://install.meteor.com/ | /bin/sh 
+      - run:
+          name: install npm & phantom
+          command: |
+            npm config set user 0 && npm config set unsafe-perm true
+            yarn global add npm
+            yarn global add phantomjs-prebuilt
+      - run:
+          name: install Gradle
+          command: sudo apt-get install gradle
+      - run:
+          name: check versions
+          command: |
+            echo "Meteor version:"
+            # this forces Meteor to download whatever release your project is using
+            meteor --version
+            which meteor
+            echo "Meteor node version:"
+            meteor node -v
+            echo "Meteor npm version:"
+            meteor npm -v
+      - run:
+          name: install npm packages
+          command: meteor npm install
+      - run:
+          name: Build Meteor
+          command: meteor build --directory .build --architecture os.linux.x86_64 --server https://pos.mrwinston.nl
+      - run:
+          name: copy meteor bin to build cache
+          command: |
+            mkdir -p ~/build-temp
+            cp /usr/local/bin/meteor ~/build-temp/meteor-bin
+      - save_cache:
+          key: build-temp-{{ checksum ".meteor/release" }}
+          paths:
+            - ~/build-temp
+      - save_cache:
+          key: meteor-release-{{ checksum ".meteor/release" }}
+          paths:
+            - ~/.meteor
+      - save_cache:
+          key: meteor-packages-{{ checksum ".meteor/versions" }}
+          paths:
+            - .meteor/local
+      - save_cache:
+          key: npm-packages-{{ checksum "package.json" }}
+          paths:
+            - ./node_modules/
+            - ~/.npm/
+      - persist_to_workspace:
+          root: ~/app
+          paths:
+            - node_modules
+            - .build
+            
+workflows:
+  version: 2
+  node-android-ios-linux:
+    jobs:
+      - build
