@@ -48,11 +48,6 @@ useraccounts:unstyled
 useraccounts:flow-routing
 softwarerero:accounts-t9n
 
-# mobile
-crosswalk@1.7.1
-mobile-experience@1.0.5
-chriswessels:hammer
-
 # production
 juliancwirko:postcss
 standard-minifier-js@2.3.4
